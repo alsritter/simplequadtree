@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-const MAX_ELE_NUM = 100
+const MAX_ELE_NUM = 10
 
 // Region 表示节点保存元素的范围
 type Region struct {
@@ -25,7 +25,7 @@ type ElePoint struct {
 type QuadTreeNode struct {
 	depth   int                    // 节点深度
 	isLeaf  bool                   // 是否是叶子节点
-	region  Region                 // 区域范围
+	region  *Region                // 区域范围
 	LU      *QuadTreeNode          // 左上子结点指针
 	LB      *QuadTreeNode          // 左下子结点指针
 	RU      *QuadTreeNode          // 右上子结点指针
@@ -34,7 +34,7 @@ type QuadTreeNode struct {
 	eleList [MAX_ELE_NUM]*ElePoint // 位置点列表
 }
 
-func NewNode(depth int, region Region) *QuadTreeNode {
+func NewNode(depth int, region *Region) *QuadTreeNode {
 	node := &QuadTreeNode{}
 	node.depth = depth
 	node.isLeaf = true
@@ -44,12 +44,12 @@ func NewNode(depth int, region Region) *QuadTreeNode {
 }
 
 func NewRegion(bottom, up, left, right int) *Region {
-	region := &Region{}
-	region.up = up
-	region.bottom = bottom
-	region.left = left
-	region.right = right
-	return region
+	return &Region{
+		up:     up,
+		bottom: bottom,
+		left:   left,
+		right:  right,
+	}
 }
 
 func NewElement(x, y int, data string) *ElePoint {
@@ -73,11 +73,7 @@ func InsertEle(node *QuadTreeNode, ele ElePoint) {
 			splitNode(node)
 			InsertEle(node, ele)
 		} else {
-			elePtr := &ElePoint{}
-			elePtr.y = ele.y
-			elePtr.x = ele.x
-			elePtr.data = ele.data
-			node.eleList[node.eleNum] = elePtr
+			node.eleList[node.eleNum] = &ele
 			node.eleNum++
 		}
 		return
@@ -145,13 +141,6 @@ func QueryNodeByElement(node *QuadTreeNode, ele *ElePoint) {
 	}
 }
 
-func newChildNode(node *QuadTreeNode, bottom, up, left, right int) *QuadTreeNode {
-	depth := node.depth + 1
-	region := NewRegion(bottom, up, left, right)
-	childNode := NewNode(depth, *region)
-	return childNode
-}
-
 /**
  * 分裂结点
  * 1.通过父结点获取子结点的深度和范围
@@ -162,12 +151,14 @@ func newChildNode(node *QuadTreeNode, bottom, up, left, right int) *QuadTreeNode
 func splitNode(node *QuadTreeNode) {
 	midVertical := (node.region.up + node.region.bottom) / 2
 	midHorizontal := (node.region.left + node.region.right) / 2
-	node.isLeaf = false
 
-	node.RU = newChildNode(node, midVertical, node.region.up, midHorizontal, node.region.right)
-	node.LU = newChildNode(node, midVertical, node.region.up, node.region.left, midHorizontal)
-	node.RB = newChildNode(node, node.region.bottom, midVertical, midHorizontal, node.region.right)
-	node.LB = newChildNode(node, node.region.bottom, midVertical, node.region.left, midVertical)
+	fmt.Printf("(%d,%d) (%d,%d)-(%d,%d) \n\n", midHorizontal, midVertical, node.region.left, node.region.right, node.region.bottom, node.region.up)
+
+	node.isLeaf = false
+	node.RU = NewNode(node.depth+1, NewRegion(midVertical, node.region.up, midHorizontal, node.region.right))
+	node.LU = NewNode(node.depth+1, NewRegion(midVertical, node.region.up, node.region.left, midHorizontal))
+	node.RB = NewNode(node.depth+1, NewRegion(node.region.bottom, midVertical, midHorizontal, node.region.right))
+	node.LB = NewNode(node.depth+1, NewRegion(node.region.bottom, midVertical, node.region.left, midHorizontal))
 
 	// 遍历结点下的位置点，将其插入到子结点中
 	for i := 0; i < node.eleNum; i++ {
